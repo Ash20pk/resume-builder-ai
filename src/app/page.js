@@ -59,6 +59,7 @@ export default function Home() {
           break;
         }
         const chunk = decoder.decode(value);
+        console.log(chunk);
         setGeneratedContent((prev) => prev + chunk);
       }
     } catch (error) {

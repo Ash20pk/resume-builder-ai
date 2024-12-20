@@ -38,7 +38,6 @@ const ModernTemplate = ({ content, primaryColor = '#3b82f6', preview }) => {
   };
 
   const data = preview ? previewContent : parseMarkdownContent(content);
-  console.log(data);
   if (!data) return null;
 
   return (
