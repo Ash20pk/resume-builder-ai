@@ -1,22 +1,23 @@
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export async function* OpenAIStream(response) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
-  let counter = 0;
-
+  let buffer = '';
   for await (const chunk of response) {
-    counter++;
     const content = chunk.choices[0]?.delta?.content || '';
-    
     if (content) {
-      // Add a small delay for typewriter effect
-      // Delay less for punctuation and spaces
-      const delay = content.match(/[.,!? ]/) ? 10 : 30;
-      await sleep(delay);
+      buffer += content;
       
-      yield encoder.encode(content);
+      // Flush the buffer when we have a complete sentence or enough characters
+      if (buffer.includes('.') || buffer.includes('\n') || buffer.length > 100) {
+        yield encoder.encode(buffer);
+        buffer = '';
+      }
     }
+  }
+  
+  // Flush any remaining content
+  if (buffer) {
+    yield encoder.encode(buffer);
   }
 }

@@ -1,42 +1,115 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import Select from 'react-select';
-import { HexColorPicker } from 'react-colorful';
-import { templates } from '@/components/resume-templates';
-import { clsx } from 'clsx';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Step1 from '@/components/Step1';
+import Step2 from '@/components/Step2';
+import Step3 from '@/components/Step3';
+import Step4 from '@/components/Step4';
+import StepIndicator from '@/components/StepIndicator';
+import PreviewSelection from '@/components/PreviewSelection';
+import ResumePreview from '@/components/ResumePreview';
+import { ChevronLeft, ChevronRight, Download, Save, RotateCcw } from 'lucide-react';
+
+const STORAGE_KEY = 'resume_builder_data';
+const initialFormData = {
+  fullName: '',
+  email: '',
+  phone: '',
+  location: '',
+  objective: '',
+  experience: [{
+    company: '',
+    position: '',
+    startDate: '',
+    endDate: '',
+    description: ''
+  }],
+  education: [{
+    institution: '',
+    degree: '',
+    startDate: '',
+    endDate: '',
+    description: ''
+  }],
+  skills: []
+};
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [selectedTemplate, setSelectedTemplate] = useState('modern');
   const [loading, setLoading] = useState(false);
   const [generatedContent, setGeneratedContent] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState(templates[0]);
-  const [primaryColor, setPrimaryColor] = useState('#3b82f6');
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    experience: '',
-    education: '',
-    skills: '',
-    objective: ''
-  });
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState(initialFormData);
+  const [lastSaved, setLastSaved] = useState(null);
+  
+  // Load saved data on mount
+  useEffect(() => {
+    setMounted(true);
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setFormData(parsed);
+        setLastSaved(new Date());
+      } catch (error) {
+        console.error('Error loading saved data:', error);
+      }
+    }
+  }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  // Autosave whenever form data changes
+  useEffect(() => {
+    if (mounted) {
+      const timeoutId = setTimeout(() => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+          setLastSaved(new Date());
+        } catch (error) {
+          console.error('Error saving data:', error);
+        }
+      }, 1000); // Debounce autosave for 1 second
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData, mounted]);
+
+  const updateFormData = (field, value) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [field]: value
     }));
   };
 
-  const generateResume = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setGeneratedContent('');
+  const handleNext = () => {
+    if (currentStep < 4) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      handleSubmit();
+    }
+  };
 
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const handleReset = () => {
+    if (window.confirm('Are you sure you want to reset all form data? This cannot be undone.')) {
+      setFormData(initialFormData);
+      localStorage.removeItem(STORAGE_KEY);
+      setLastSaved(null);
+      setGeneratedContent('');
+      setError('');
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError('');
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -45,246 +118,177 @@ export default function Home() {
         },
         body: JSON.stringify(formData),
       });
-
+      
       if (!response.ok) {
-        throw new Error(response.statusText);
+        throw new Error('Failed to generate resume');
       }
 
+      // Handle streaming response
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let content = '';
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
+        if (done) break;
+        
         const chunk = decoder.decode(value);
-        console.log(chunk);
-        setGeneratedContent((prev) => prev + chunk);
+        content += chunk;
+        setGeneratedContent(content);
+      }
+
+      if (content.includes('## Not Found ##')) {
+        setError('Please fill in all required fields with detailed information.');
+        setGeneratedContent('');
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error generating resume:', error);
+      setError('Failed to generate resume. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const templateOptions = templates.map(template => ({
-    value: template.id,
-    label: template.name
-  }));
+  const getCurrentStep = () => {
+    switch (currentStep) {
+      case 1:
+        return <Step1 formData={formData} updateFormData={updateFormData} />;
+      case 2:
+        return <Step2 formData={formData} updateFormData={updateFormData} />;
+      case 3:
+        return <Step3 formData={formData} updateFormData={updateFormData} />;
+      case 4:
+        return (
+          <>
+            <Step4 formData={formData} updateFormData={updateFormData} />
+            <div className="mt-8 pt-8 border-t border-slate-700">
+              <PreviewSelection selectedTemplate={selectedTemplate} setSelectedTemplate={setSelectedTemplate} />
+            </div>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
-  const SelectedTemplateComponent = selectedTemplate.component;
+  if (!mounted) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-8">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-12"
-        >
-          <h1 className="text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-            AI Resume Builder
-          </h1>
-          <p className="text-gray-400 text-xl">
-            Create a professional resume in minutes with AI
-          </p>
-        </motion.div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px]" />
+      <div className="min-h-screen relative">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-white mb-4">Resume Builder AI</h1>
+            <p className="text-gray-400">Create a professional resume in minutes</p>
+            {lastSaved && (
+              <p className="text-sm text-gray-500 mt-2">
+                Last saved: {new Date(lastSaved).toLocaleTimeString()}
+              </p>
+            )}
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-gray-800 p-6 rounded-xl shadow-xl"
-          >
-            <div className="mb-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Template Style
-                </label>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  {templates.map((template) => (
-                    <div
-                      key={template.id}
-                      className={clsx(
-                        "cursor-pointer rounded-lg overflow-hidden border-2 transition-all",
-                        selectedTemplate.id === template.id
-                          ? "border-blue-500 shadow-lg scale-[1.02]"
-                          : "border-gray-700 hover:border-gray-500"
-                      )}
-                      onClick={() => setSelectedTemplate(template)}
+          {error && (
+            <div className="max-w-6xl mx-auto mb-6">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-red-400">
+                {error}
+              </div>
+            </div>
+          )}
+
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Form Section */}
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-6">
+                  <StepIndicator currentStep={currentStep} totalSteps={4} />
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-gray-400 hover:text-white hover:bg-slate-700/50 transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Reset Form
+                  </button>
+                </div>
+                
+                <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 mb-6">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentStep}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
                     >
-                      <div className="relative bg-white aspect-[1/1.4] w-full">
-                        <div className="absolute inset-0 transform scale-[0.6]">
-                          {template.preview({ primaryColor })}
-                        </div>
-                      </div>
-                      <div className="p-3 bg-gray-800">
-                        <h3 className="font-medium text-gray-200">{template.name}</h3>
-                        <p className="text-sm text-gray-400">{template.description}</p>
-                      </div>
-                    </div>
-                  ))}
+                      {getCurrentStep()}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+
+                <div className="flex justify-between">
+                  <button
+                    onClick={handleBack}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      currentStep === 1
+                        ? 'text-gray-500 cursor-not-allowed'
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                    disabled={currentStep === 1}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                    Back
+                  </button>
+
+                  <button
+                    onClick={handleNext}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {currentStep === 4 ? (
+                      loading ? (
+                        'Generating...'
+                      ) : (
+                        <>
+                          Generate Resume
+                          <Download className="w-5 h-5" />
+                        </>
+                      )
+                    ) : (
+                      <>
+                        Next
+                        <ChevronRight className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Primary Color
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowColorPicker(!showColorPicker)}
-                    className="w-full h-10 rounded-md border border-gray-600"
-                    style={{ backgroundColor: primaryColor }}
-                  />
-                  {showColorPicker && (
-                    <div className="absolute z-10 mt-2">
-                      <HexColorPicker color={primaryColor} onChange={setPrimaryColor} />
+
+              {/* Preview Section */}
+              <div className="lg:w-[600px] sticky top-8">
+                <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6">
+                  <h2 className="text-2xl font-bold text-gray-200 mb-6">Preview</h2>
+                  <div className="transform scale-[0.6] origin-top">
+                    <ResumePreview markdown={generatedContent} template={selectedTemplate} />
+                  </div>
+                  {generatedContent && (
+                    <div className="flex justify-end mt-6">
+                      <button
+                        onClick={() => {
+                          // TODO: Implement PDF download
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                      >
+                        <Download className="w-5 h-5" />
+                        Download PDF
+                      </button>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-
-            <form onSubmit={generateResume} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Professional Experience
-                </label>
-                <textarea
-                  name="experience"
-                  value={formData.experience}
-                  onChange={handleInputChange}
-                  rows="4"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Education
-                </label>
-                <textarea
-                  name="education"
-                  value={formData.education}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Skills
-                </label>
-                <textarea
-                  name="skills"
-                  value={formData.skills}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Career Objective
-                </label>
-                <textarea
-                  name="objective"
-                  value={formData.objective}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full py-3 px-6 rounded-lg text-white font-semibold ${
-                  loading
-                    ? 'bg-gray-600'
-                    : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
-                } transition-all duration-200 transform hover:scale-105`}
-              >
-                {loading ? 'Generating...' : 'Generate Resume'}
-              </button>
-            </form>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="bg-gray-800 p-6 rounded-xl shadow-xl"
-          >
-            <h2 className="text-2xl font-bold mb-4">Generated Resume</h2>
-            <div className="bg-white text-gray-800 rounded-lg min-h-[600px] overflow-auto shadow-inner">
-              {loading && !generatedContent && (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                </div>
-              )}
-              {generatedContent && (
-                <SelectedTemplateComponent
-                  content={generatedContent}
-                  primaryColor={primaryColor}
-                />
-              )}
-            </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>

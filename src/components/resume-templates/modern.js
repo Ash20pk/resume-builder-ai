@@ -1,10 +1,12 @@
-'use client';
-
 import React from 'react';
-import { Mail, Phone, MapPin, Calendar, Building } from 'lucide-react';
+import { Mail, Phone, MapPin, Calendar, Building, GraduationCap, Award, Globe } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Avatar } from "@/components/ui/avatar";
 import { parseMarkdownContent } from '@/utils/parse-markdown';
 
-const ModernTemplate = ({ content, primaryColor = '#3b82f6', preview }) => {
+const ModernTemplate = ({ content, primaryColor = '#0A84FF', preview }) => {
   const previewContent = {
     name: 'John Doe',
     title: 'Software Engineer',
@@ -40,127 +42,146 @@ const ModernTemplate = ({ content, primaryColor = '#3b82f6', preview }) => {
   const data = preview ? previewContent : parseMarkdownContent(content);
   if (!data) return null;
 
+  const SectionHeader = ({ icon: Icon, children }) => (
+    <div className="flex items-center gap-2 mb-6">
+      <div 
+        className="p-2 rounded-lg"
+        style={{ backgroundColor: `${primaryColor}15` }}
+      >
+        <Icon className="w-5 h-5" style={{ color: primaryColor }} />
+      </div>
+      <h2 className="text-2xl font-semibold text-gray-900">{children}</h2>
+    </div>
+  );
+
   return (
     <div className="p-8 max-w-[850px] mx-auto bg-white min-h-screen font-sans">
-      {/* Header Section with improved visual hierarchy */}
-      <header className="mb-8">
-        <div className="border-l-4 pl-6" style={{ borderColor: primaryColor }}>
-          <h1 className="text-4xl font-bold text-gray-900 tracking-tight">{data.name}</h1>
-          <p className="text-xl text-gray-600 mt-2 font-medium">{data.title}</p>
-        </div>
-        
-        {/* Contact info with icons */}
-        <div className="mt-6 flex flex-wrap gap-6 text-gray-600">
-          <div className="flex items-center gap-2">
-            <Mail size={16} />
-            <span>{data.contact.email}</span>
+      {/* Header/Intro Section */}
+      <Card className="mb-8">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-8">
+            <Avatar className="w-32 h-32">
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <span className="text-4xl font-bold text-white">
+                  {data.name.split(' ').map(n => n[0]).join('')}
+                </span>
+              </div>
+            </Avatar>
+            <div className="flex-1">
+              <h1 className="text-4xl font-bold text-gray-900 tracking-tight">{data.name}</h1>
+              <p className="text-xl text-gray-600 mt-2 mb-4">{data.title}</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <Badge variant="secondary" className="flex items-center gap-2 px-3 py-1.5">
+                  <Mail className="w-4 h-4" />
+                  {data.contact.email}
+                </Badge>
+                <Badge variant="secondary" className="flex items-center gap-2 px-3 py-1.5">
+                  <Phone className="w-4 h-4" />
+                  {data.contact.phone}
+                </Badge>
+                <Badge variant="secondary" className="flex items-center gap-2 px-3 py-1.5">
+                  <MapPin className="w-4 h-4" />
+                  {data.contact.location}
+                </Badge>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Phone size={16} />
-            <span>{data.contact.phone}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <MapPin size={16} />
-            <span>{data.contact.location}</span>
-          </div>
-        </div>
-      </header>
+        </CardContent>
+      </Card>
 
-      <main className="space-y-8">
-        {/* Summary Section */}
-        <section>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4 pb-2 border-b-2"
-              style={{ borderColor: primaryColor }}>
-            Professional Summary
-          </h2>
-          <p className="text-gray-700 leading-relaxed">{data.sections.summary}</p>
-        </section>
+      <div className="grid grid-cols-3 gap-6">
+        {/* Main Content - Left 2 Columns */}
+        <div className="col-span-2 space-y-6">
+          {/* Summary */}
+          <Card>
+            <CardContent className="pt-6">
+              <SectionHeader icon={Building}>Professional Summary</SectionHeader>
+              <p className="text-gray-700 leading-relaxed">{data.sections.summary}</p>
+            </CardContent>
+          </Card>
 
-        {/* Experience Section */}
-        <section>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4 pb-2 border-b-2"
-              style={{ borderColor: primaryColor }}>
-            Experience
-          </h2>
-          <div className="space-y-6">
-            {data.sections.experience.map((exp, i) => (
-              <div key={i} className="relative pl-4">
-                <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full"
-                     style={{ backgroundColor: primaryColor }}/>
-                <div>
-                  <h3 className="font-semibold text-lg text-gray-900">{exp.title}</h3>
-                  <div className="flex gap-4 text-gray-600 mt-1 mb-3">
-                    <span className="flex items-center gap-1">
-                      <Building size={14} />
-                      {exp.company}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar size={14} />
-                      {exp.period}
-                    </span>
+          {/* Experience */}
+          <Card>
+            <CardContent className="pt-6">
+              <SectionHeader icon={Building}>Experience</SectionHeader>
+              <div className="space-y-6">
+                {data.sections.experience.map((exp, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{exp.title}</h3>
+                        <p className="text-gray-600">{exp.company}</p>
+                      </div>
+                      <Badge variant="outline" className="text-gray-600">
+                        {exp.period}
+                      </Badge>
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {exp.points.map((point, j) => (
+                        <li key={j} className="text-gray-700 flex gap-2">
+                          <span className="text-gray-400">•</span>
+                          {point}
+                        </li>
+                      ))}
+                    </ul>
+                    {i < data.sections.experience.length - 1 && <Separator className="my-4" />}
                   </div>
-                  <ul className="space-y-2">
-                    {exp.points.map((point, j) => (
-                      <li key={j} className="text-gray-700 relative pl-5 before:content-['•'] before:absolute before:left-0 before:text-gray-400">
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </CardContent>
+          </Card>
 
-        {/* Education Section */}
-        <section>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4 pb-2 border-b-2"
-              style={{ borderColor: primaryColor }}>
-            Education
-          </h2>
-          <div className="space-y-4">
-            {data.sections.education.map((edu, i) => (
-              <div key={i} className="relative pl-4">
-                <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full"
-                     style={{ backgroundColor: primaryColor }}/>
-                <h3 className="font-semibold text-lg text-gray-900">{edu.degree}</h3>
-                <div className="flex gap-4 text-gray-600 mt-1">
-                  <span className="flex items-center gap-1">
-                    <Building size={14} />
-                    {edu.school}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar size={14} />
-                    {edu.year}
-                  </span>
-                </div>
+          {/* Education */}
+          <Card>
+            <CardContent className="pt-6">
+              <SectionHeader icon={GraduationCap}>Education</SectionHeader>
+              <div className="space-y-4">
+                {data.sections.education.map((edu, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{edu.degree}</h3>
+                        <p className="text-gray-600">{edu.school}</p>
+                      </div>
+                      <Badge variant="outline" className="text-gray-600">
+                        {edu.year}
+                      </Badge>
+                    </div>
+                    {i < data.sections.education.length - 1 && <Separator className="my-4" />}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Skills Section */}
-        <section>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4 pb-2 border-b-2"
-              style={{ borderColor: primaryColor }}>
-            Skills
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {data.sections.skills.map((skill, i) => (
-              <span
-                key={i}
-                className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: `${primaryColor}15`,
-                  color: primaryColor
-                }}
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
-        </section>
-      </main>
+        {/* Sidebar - Right Column */}
+        <div className="space-y-6">
+          {/* Skills */}
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Skills</h3>
+              <div className="flex flex-wrap gap-2">
+                {Array.isArray(data.sections.skills) ? (
+                  data.sections.skills.map((skill, i) => (
+                    <Badge 
+                      key={i}
+                      variant="secondary"
+                      style={{
+                        backgroundColor: `${primaryColor}15`,
+                        color: primaryColor
+                      }}
+                    >
+                      {skill}
+                    </Badge>
+                  ))
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
