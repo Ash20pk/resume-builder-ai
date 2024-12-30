@@ -39,7 +39,7 @@ export async function POST(req) {
 [List of relevant skills]
 
 Follow these guidelines:
-- Keep content clear and concise
+- Keep content clear and add details where needed
 - Use action verbs
 - Include measurable achievements
 - Make it ATS-friendly
